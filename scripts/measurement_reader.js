@@ -1,7 +1,7 @@
 var fs        = require('fs')
   , zlib          = require('zlib')
   , path      = require('path')
-  , XmlStream = require('/usr/local/lib/node_modules/xml-stream')
+  , XmlStream = require('xml-stream')
   , pg 		  = require('/usr/local/lib/node_modules/pg')
   , copy      = require('/usr/local/lib/node_modules/pg-copy-streams')
   , request   = require('/usr/local/lib/node_modules/request');
@@ -13,18 +13,20 @@ pg.on('error', function (err) {
 });
 var connstring = "tcp://postgres@localhost:5432/research";
 
-var request = pg.connect(connstring, function(err, client) {
+var req = pg.connect(connstring, function(err, client) {
 		if (err){
               console.log('meeh',err);
               reject(err);
         }
         _db = client;
+        //Remove old data
+        _db.query('DELETE FROM ndw.mst_points;');
+        _db.query('DELETE FROM ndw.mst_lines;');
 
         function writeout(item){
-        	console.log(item.mst_id);
         	//return;//
         	if (item.location && item.location.longitude){
-				query = "INSERT INTO ndw.mst2 (mst_id,name, location, alertcdirection, alertclocation, alertcoffset, carriageway, direction, distance, method, equipment, lanes, characteristics, geom) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9,$10, $11, $12, $13, ST_SetSrid(ST_MakePoint("+item.location.longitude+","+item.location.latitude+"),4326))";
+				query = "INSERT INTO ndw.mst_points (mst_id,name, location, alertcdirection, alertclocation, alertcoffset, carriageway, direction, distance, method, equipment, lanes, characteristics, geom) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9,$10, $11, $12, $13, ST_SetSrid(ST_MakePoint("+item.location.longitude+","+item.location.latitude+"),4326))";
 				var vars = [
 				   item.mst_id
 				  ,item.name
@@ -51,18 +53,24 @@ var request = pg.connect(connstring, function(err, client) {
 
         }
         console.log('Opening stream');
-	var stream = fs.createReadStream('measurement_current.xml');
+	//var stream = fs.createReadStream('measurement_current.xml');
+	var stream = request.get('http://opendata.ndw.nu/measurement_current.xml.gz')
+                        .pipe(zlib.createGunzip());
 	var xml = new XmlStream(stream, 'utf8');
 	console.log('Stream opened');
 	xml.collect('locationContainedInItinerary');
 	console.log('Done collecting');
 	xml.on('updateElement: measurementSiteRecord', function(node) {
-		console.log('node');
+		console.log(node.$.id);
 			var item = {};
 			item.time = node.measurementSiteRecordVersionTime;
 			item.name = node.measurementSiteName.values.value.$text;
-			item.equipment = node.measurementEquipmentTypeUsed.values.value.$text;
+			if (node.measurementEquipmentTypeUsed){
+				item.equipment = node.measurementEquipmentTypeUsed.values.value.$text;
+			}
+			else item.equipment = 'unknown';
 			item.mst_id = node.$.id;
+		console.log(item.mst_id);
 			item.lanes = node.measurementSiteNumberOfLanes;
 			item.characteristics = {};
 			var characteristics = node.measurementSpecificCharacteristics.measurementSpecificCharacteristics;
@@ -105,7 +113,7 @@ var request = pg.connect(connstring, function(err, client) {
 					}
 					item.location = d.location
 						.locationForDisplay;
-					//writeout(item);
+					writeout(item);
 				});
 			}
 			else {
