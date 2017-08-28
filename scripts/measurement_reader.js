@@ -11,7 +11,8 @@ var _db;
 pg.on('error', function (err) {
   console.log('Database error!', err);
 });
-var connstring = "tcp://postgres@localhost:5432/research";
+var connstring = "tcp://postgres@localhost:5433/research";
+var writecount = 0;
 
 var req = pg.connect(connstring, function(err, client) {
 		if (err){
@@ -43,6 +44,7 @@ var req = pg.connect(connstring, function(err, client) {
 				  ,item.lanes
 				  ,item.characteristics
 				];
+				writecount = writecount + 1;
 				_db.query(query, vars, function(err, result){
 					if (err){
 						console.warn(err, query);
@@ -61,7 +63,6 @@ var req = pg.connect(connstring, function(err, client) {
 	xml.collect('locationContainedInItinerary');
 	console.log('Done collecting');
 	xml.on('updateElement: measurementSiteRecord', function(node) {
-		console.log(node.$.id);
 			var item = {};
 			item.time = node.measurementSiteRecordVersionTime;
 			item.name = node.measurementSiteName.values.value.$text;
@@ -70,7 +71,6 @@ var req = pg.connect(connstring, function(err, client) {
 			}
 			else item.equipment = 'unknown';
 			item.mst_id = node.$.id;
-		console.log(item.mst_id);
 			item.lanes = node.measurementSiteNumberOfLanes;
 			item.characteristics = {};
 			var characteristics = node.measurementSpecificCharacteristics.measurementSpecificCharacteristics;
@@ -125,6 +125,6 @@ var req = pg.connect(connstring, function(err, client) {
 	});
 	xml.on('end',function(){
 		console.log('Done');
-		
+		console.log('Writecount: '+writecount);
 	});
 });

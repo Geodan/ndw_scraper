@@ -1,7 +1,7 @@
 var fs        = require('fs')
   , zlib          = require('zlib')
   , path      = require('path')
-  , XmlStream = require('/usr/local/lib/node_modules/xml-stream')
+  , XmlStream = require('xml-stream')
   , pg            = require('/usr/local/lib/node_modules/pg')
   , copy      = require('/usr/local/lib/node_modules/pg-copy-streams')
   , request   = require('/usr/local/lib/node_modules/request');
@@ -14,7 +14,7 @@ var _db;
 pg.on('error', function (err) {
   console.log('Database error!', err);
 });
-var connstring = "tcp://postgres@localhost:5432/research";
+var connstring = "tcp://postgres@localhost:5433/research";
 
 
 
