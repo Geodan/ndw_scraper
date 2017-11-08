@@ -5,7 +5,7 @@ var fs		= require('fs')
   , { Pool }  = require('/usr/local/lib/node_modules/pg')
   , copy	  = require('/usr/local/lib/node_modules/pg-copy-streams')
   , request   = require('/usr/local/lib/node_modules/request')
-  , SQL	   = require('sql-template-strings');
+  , SQL	      = require('/usr/local/lib/node_modules/sql-template-strings');
 
 var incidentClassTypes = {
 	'AbnormalTraffic': 'abnormalTrafficType',
