@@ -2,9 +2,10 @@ var fs        = require('fs')
   , zlib          = require('zlib')
   , path      = require('path')
   , XmlStream = require('xml-stream')
+  , XmlJson = require('xml-json')
   , pg 		  = require('/usr/local/lib/node_modules/pg')
-  , copy      = require('/usr/local/lib/node_modules/pg-copy-streams')
   , request   = require('/usr/local/lib/node_modules/request');
+var ldj = require('ldjson-stream');
 
 var _db;
 //Prepare PG
@@ -23,10 +24,12 @@ var req = pg.connect(connstring, function(err, client) {
         //Remove old data
         _db.query('DELETE FROM ndw.mst_points;');
         _db.query('DELETE FROM ndw.mst_lines;');
-
+        
         function writeout(item){
+        	
         	//return;//
         	if (item.location && item.location.longitude){
+        		console.log(JSON.stringify(item));
 				query = "INSERT INTO ndw.mst_points (mst_id,name, location, alertcdirection, alertclocation, alertcoffset, carriageway, direction, distance, method, equipment, lanes, characteristics, geom) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9,$10, $11, $12, $13, ST_SetSrid(ST_MakePoint("+item.location.longitude+","+item.location.latitude+"),4326))";
 				var vars = [
 				   item.mst_id
@@ -42,7 +45,7 @@ var req = pg.connect(connstring, function(err, client) {
 				  ,item.method
 				  ,item.equipment
 				  ,item.lanes
-				  ,item.characteristics
+				  ,JSON.stringify(item.characteristics)
 				];
 				writecount = writecount + 1;
 				_db.query(query, vars, function(err, result){
@@ -55,33 +58,28 @@ var req = pg.connect(connstring, function(err, client) {
 
         }
         console.log('Opening stream');
-	//var stream = fs.createReadStream('measurement_current.xml');
+        
+        
+    var converter = XmlJson('measurementSiteRecord', {})    
 	var stream = request.get('http://opendata.ndw.nu/measurement_current.xml.gz')
-                        .pipe(zlib.createGunzip());
-	var xml = new XmlStream(stream, 'utf8');
-	console.log('Stream opened');
-	xml.collect('locationContainedInItinerary');
-	console.log('Done collecting');
-	xml.on('updateElement: measurementSiteRecord', function(node) {
-			var item = {};
+		.pipe(zlib.createGunzip())
+        .pipe(converter).pipe(ldj.serialize())
+        .on('data',function(data){
+        	var node = JSON.parse(data);
+    		var item = {};
 			item.time = node.measurementSiteRecordVersionTime;
-			item.name = node.measurementSiteName.values.value.$text;
+			
+			item.name = node.measurementSiteName.values.value._;
 			if (node.measurementEquipmentTypeUsed){
-				item.equipment = node.measurementEquipmentTypeUsed.values.value.$text;
+				item.equipment = node.measurementEquipmentTypeUsed.values.value._;
 			}
 			else item.equipment = 'unknown';
-			item.mst_id = node.$.id;
+			item.mst_id = node.id;
 			item.lanes = node.measurementSiteNumberOfLanes;
-			item.characteristics = {};
-			var characteristics = node.measurementSpecificCharacteristics.measurementSpecificCharacteristics;
-			item.characteristics.accuracy = characteristics.accuracy;
-			item.characteristics.period = characteristics.period;
-			item.characteristics.type = characteristics.specificMeasurementValueType;
-			item.characteristics.vehicletype = characteristics.specificVehicleCharacteristics.vehicleType;
-			
+			item.characteristics = node.measurementSpecificCharacteristics;
 			item.method = node.computationMethod;
 			//If only 1 location
-			if (node.measurementSiteLocation.$['xsi:type'] == 'Point'){
+			if (node.measurementSiteLocation['xsi:type'] == 'Point'){
 				
 				item.startpoint = {latitude: 1,longitude: 1};
 				item.endpoint = {latitude: 0,longitude: 0};
@@ -94,24 +92,26 @@ var req = pg.connect(connstring, function(err, client) {
 				writeout(item);
 			}
 			//If multiple locations
-			else if (node.measurementSiteLocation.$['xsi:type'] =="ItineraryByIndexedLocations") {
-				var locations = node.measurementSiteLocation
+			
+			else if (node.measurementSiteLocation['xsi:type'] =="ItineraryByIndexedLocations") {
+				var l = node.measurementSiteLocation
 					.locationContainedInItinerary;
-				locations.forEach(function(d){
-					item.index = d.$.index;
-					if (d.location.$['xsi:type'] == 'Linear'){
-						var linenode = d.location
-						.linearExtension.linearByCoordinatesExtension;
+				let locations = Array.isArray(l)?l:[l];
+				locations.forEach(location=>{
+					item.index = location.index;
+					if (location['xsi:type'] == 'Linear'){
+						var linenode = location
+							.linearExtension.linearByCoordinatesExtension;
 						item.startpoint = linenode.linearCoordinatesStartPoint.pointCoordinates;
 						item.endpoint = linenode.linearCoordinatesEndPoint.pointCoordinates;
-						var alertc = d.location.alertCLinear;
+						var alertc = location.alertCLinear;
 						item.alertclocation1 = alertc.alertCMethod4PrimaryPointLocation.alertCLocation.specificLocation;
 						item.alertclocation2 = alertc.alertCMethod4SecondaryPointLocation.alertCLocation.specificLocation;
 					}
 					else { 
 						//this doesn't exist
 					}
-					item.location = d.location
+					item.location = location
 						.locationForDisplay;
 					writeout(item);
 				});
@@ -119,12 +119,7 @@ var req = pg.connect(connstring, function(err, client) {
 			else {
 				console.log('Not included: ' ,id);
 			}
+			
 	});
-	xml.on('error', function(message) {
-		console.log('Parsing failed: ' + message);
-	});
-	xml.on('end',function(){
-		console.log('Done');
-		console.log('Writecount: '+writecount);
-	});
+	
 });

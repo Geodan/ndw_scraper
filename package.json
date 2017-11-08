@@ -1,0 +1,24 @@
+{
+  "name": "ndw_scaper",
+  "version": "1.0.0",
+  "description": "Gets data from NDW portal and transforms it into postgres data",
+  "main": "index.js",
+  "dependencies": {
+    "xml-json": "^2.0.2",
+    "xml-stream": "^0.4.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Geodan/ndw_scaper.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Geodan/ndw_scaper/issues"
+  },
+  "homepage": "https://github.com/Geodan/ndw_scaper#readme"
+}

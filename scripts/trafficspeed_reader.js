@@ -32,46 +32,46 @@ pg.connect(connstring, function(err, client) {
         });
 
         var counter = 0;
-                //var stream = fs.createReadStream('trafficspeed.xml');
-                var stream = request.get('http://opendata.ndw.nu/trafficspeed.xml.gz')
-                        .pipe(zlib.createGunzip());
+		//var stream = fs.createReadStream('trafficspeed.xml');
+		var stream = request.get('http://opendata.ndw.nu/trafficspeed.xml.gz')
+				.pipe(zlib.createGunzip());
 
-                var xml = new XmlStream(stream, 'utf8');
-                xml.collect('measuredValue');
-                xml.on('updateElement: siteMeasurements', function(node) {
-                        var time = node.measurementTimeDefault;
-                        var ref = node.measurementSiteReference;
-                        var values = node.measuredValue;
-                        var flowArray = [];
-                        var speedArray = [];
-                        //console.log(time,ref.$.id);
-                        values.forEach(function(v){
-                                var basicData = v.measuredValue[0].basicData;
-                                if (basicData.vehicleFlow){
-                                         flowArray.push(basicData.vehicleFlow.vehicleFlowRate);
-                                        //console.log('Flow' + basicData.vehicleFlow.vehicleFlowRate);
-                                }
-                                else if (basicData.averageVehicleSpeed){
-                                        speedArray.push(basicData.averageVehicleSpeed.speed);
-                                        //console.log('Speed:' + basicData.averageVehicleSpeed.speed);
-                                }
-                        });
-                        //console.log(counter++,'---------------------------------');
+		var xml = new XmlStream(stream, 'utf8');
+		xml.collect('measuredValue');
+		xml.on('updateElement: siteMeasurements', function(node) {
+				var time = node.measurementTimeDefault;
+				var ref = node.measurementSiteReference;
+				var values = node.measuredValue;
+				var flowArray = [];
+				var speedArray = [];
+				//console.log(time,ref.$.id);
+				values.forEach(function(v){
+						var basicData = v.measuredValue[0].basicData;
+						if (basicData.vehicleFlow){
+								 flowArray.push(basicData.vehicleFlow.vehicleFlowRate);
+								//console.log('Flow' + basicData.vehicleFlow.vehicleFlowRate);
+						}
+						else if (basicData.averageVehicleSpeed){
+								speedArray.push(basicData.averageVehicleSpeed.speed);
+								//console.log('Speed:' + basicData.averageVehicleSpeed.speed);
+						}
+				});
+				//console.log(counter++,'---------------------------------');
 
-                        //Stream to db
-                        var writestring = ref.$.id + '\t' +
-                                time + '\t' +
-                                '{' + flowArray.toString() + '}' + '\t' +
-                                '{' + speedArray.toString() + '}' + '\n';
-                        //console.log('Copying:', writestring);
-                        pgstream.write(writestring);
-                });
-                xml.on('error', function(message) {
-                        console.log('Parsing failed: ' + message);
-                });
-                xml.on('end',function(){
-                        //console.log('XML closed');
-                        pgstream.end();
-                        client.end();
-                });
+				//Stream to db
+				var writestring = ref.$.id + '\t' +
+						time + '\t' +
+						'{' + flowArray.toString() + '}' + '\t' +
+						'{' + speedArray.toString() + '}' + '\n';
+				//console.log('Copying:', writestring);
+				pgstream.write(writestring);
+		});
+		xml.on('error', function(message) {
+				console.log('Parsing failed: ' + message);
+		});
+		xml.on('end',function(){
+				//console.log('XML closed');
+				pgstream.end();
+				client.end();
+		});
 });
