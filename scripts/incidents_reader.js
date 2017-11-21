@@ -7,7 +7,10 @@ var fs		= require('fs')
   , request   = require('/usr/local/lib/node_modules/request')
   , SQL	      = require('/usr/local/lib/node_modules/sql-template-strings');
 
-var incidentClassTypes = {
+const DATA_URL = 'http://opendata.ndw.nu/incidents.xml.gz';
+const DEBUG = false;
+
+const incidentClassTypes = {
 	'AbnormalTraffic': 'abnormalTrafficType',
 	'Accident': 'accidentType',
 	'AuthorityOperation': 'authorityOperationType',
@@ -24,21 +27,29 @@ var incidentClassTypes = {
 	'VehicleObstruction': 'vehicleObstructionType'
 }
 
+function log(message){
+	if(DEBUG) 
+		console.log(message);
+}
+function logerror(message){
+	console.error(message);
+}
+
 function readXML() {
 	return new Promise(function(resolve, reject) {
 		var nodes = [];
-		var stream = request.get('http://opendata.ndw.nu/incidents.xml.gz')
+		var stream = request.get(DATA_URL)
 				.pipe(zlib.createGunzip());
 		var xml = new XmlStream(stream, 'utf8');
 		xml.collect('values');
 		xml.on('updateElement: situation', function(node) {
 			nodes.push(node);
 		});
-		xml.on('error', async function(message) {
+		xml.on('error', function(message) {
 			reject('XML parsing failed: ' + message);
 		});
-		xml.on('end', async function(){
-			console.log('XML closed');
+		xml.on('end', function(){
+			log('XML closed');
 			resolve(nodes);
 		});
 	});
@@ -60,7 +71,8 @@ const pool = new Pool({
 
 	try {
 		var nodes = await readXML();
-		console.log('read ' + nodes.length + ' nodes');
+		log('read ' + nodes.length + ' nodes');
+		log('beginning transaction');
 		await client.query('BEGIN');
 		await client.query('UPDATE ndw.incidents SET active = 0 WHERE active = 1');
 
@@ -68,7 +80,7 @@ const pool = new Pool({
 		
 		for(var i=0; i<nodes.length; i++) {
 			const node = nodes[i];
-			//console.log(node);
+			//log(node);
 			var observationtime = node.situationRecord.situationRecordObservationTime;
 			var probabilityofoccurrence = node.situationRecord.probabilityOfOccurrence;
 			var id = node.$.id;
@@ -82,9 +94,9 @@ const pool = new Pool({
 				incidenttype = node.situationRecord[typeField];
 			}
 			
-			//console.log(observationtime, id, version, probabilityofoccurrence, source, accidenttype,location);
+			//log(observationtime, id, version, probabilityofoccurrence, source, accidenttype,location);
 
-			//console.log(counter++,'---------------------------------');
+			//log(counter++,'---------------------------------');
 
 			//Stream to db
 			var querystring = SQL`
@@ -107,13 +119,17 @@ const pool = new Pool({
 				ON CONFLICT ON CONSTRAINT incidents_pkey DO UPDATE SET active = 1;
 			`;
 			await client.query(querystring);
+			counter++;
 		};
+		log('wrote ' + counter + ' records');
+		log('committing transaction');
 		await client.query('COMMIT');
 	} catch (e) {
 		await client.query('ROLLBACK');
 		throw e;
 	} finally {
 		client.release();
+		log('done, please wait until process exits');
 	}
-})().catch(e => console.error(e.stack))
+})().catch(e => logerror(e.stack))
 

@@ -3,84 +3,51 @@ var fs        = require('fs')
   , path      = require('path')
   , XmlStream = require('xml-stream')
   , XmlJson = require('xml-json')
-  , pg 		  = require('/usr/local/lib/node_modules/pg')
+  , { Pool }  = require('/usr/local/lib/node_modules/pg')
   , request   = require('/usr/local/lib/node_modules/request');
 var ldj = require('ldjson-stream');
 
-var _db;
-//Prepare PG
-pg.on('error', function (err) {
-  console.log('Database error!', err);
-});
-var connstring = "tcp://postgres@localhost:5433/research";
-var writecount = 0;
+const DEBUG = false;
+const DATA_URL = 'http://opendata.ndw.nu/measurement_current.xml.gz';
 
-var req = pg.connect(connstring, function(err, client) {
-		if (err){
-              console.log('meeh',err);
-              reject(err);
-        }
-        _db = client;
-        //Remove old data
-        _db.query('DELETE FROM ndw.mst_points;');
-        _db.query('DELETE FROM ndw.mst_lines;');
-        
-        function writeout(item){
-        	
-        	//return;//
-        	if (item.location && item.location.longitude){
-        		console.log(JSON.stringify(item));
-				query = "INSERT INTO ndw.mst_points (mst_id,name, location, alertcdirection, alertclocation, alertcoffset, carriageway, direction, distance, method, equipment, lanes, characteristics, geom) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9,$10, $11, $12, $13, ST_SetSrid(ST_MakePoint("+item.location.longitude+","+item.location.latitude+"),4326))";
-				var vars = [
-				   item.mst_id
-				  ,item.name
-				  //,item.locationi
-				  ,0
-				  ,item.alertcdirection
-				  ,item.alertclocation
-				  ,item.alertcoffset
-				  ,item.carriageway
-				  ,item.direction
-				  ,item.distance
-				  ,item.method
-				  ,item.equipment
-				  ,item.lanes
-				  ,JSON.stringify(item.characteristics)
-				];
-				writecount = writecount + 1;
-				_db.query(query, vars, function(err, result){
-					if (err){
-						console.warn(err, query);
-					}
-				});
+function log(message){
+	if(DEBUG) 
+		console.log(message);
+}
+function logerror(message){
+	console.error(message);
+}
+
+var filedate = '';
+function readXML() {
+	return new Promise(function(resolve, reject) {
+		var nodes = [];
+		var counter = 0;
+		var stream = request.get(DATA_URL)
+				.pipe(zlib.createGunzip());
+		var xml = new XmlStream(stream, 'utf8');
+		xml.collect('values');
+		xml.on('updateElement: publicationTime', function(datetime) {
+			filedate = datetime.$text;
+		});
+		xml.on('updateElement: measurementSiteRecord', function(node) {
+			counter++;
+			if (DEBUG && counter % 100 == 0) {
+				process.stdout.write('reading record ' + counter + "\r");
 			}
-			//console.log('---------------------------------');
-
-        }
-        console.log('Opening stream');
-        
-        
-    var converter = XmlJson('measurementSiteRecord', {})    
-	var stream = request.get('http://opendata.ndw.nu/measurement_current.xml.gz')
-		.pipe(zlib.createGunzip())
-        .pipe(converter).pipe(ldj.serialize())
-        .on('data',function(data){
-        	var node = JSON.parse(data);
-    		var item = {};
+			var item = {};
 			item.time = node.measurementSiteRecordVersionTime;
-			
-			item.name = node.measurementSiteName.values.value._;
+			item.name = node.measurementSiteName.values[0].value.$text;
 			if (node.measurementEquipmentTypeUsed){
-				item.equipment = node.measurementEquipmentTypeUsed.values.value._;
+				item.equipment = node.measurementEquipmentTypeUsed.values[0].value.$text;
 			}
 			else item.equipment = 'unknown';
-			item.mst_id = node.id;
+			item.mst_id = node.$.id;
 			item.lanes = node.measurementSiteNumberOfLanes;
 			item.characteristics = node.measurementSpecificCharacteristics;
 			item.method = node.computationMethod;
 			//If only 1 location
-			if (node.measurementSiteLocation['xsi:type'] == 'Point'){
-				
+			if (node.measurementSiteLocation.$['xsi:type'] == 'Point'){
 				item.startpoint = {latitude: 1,longitude: 1};
 				item.endpoint = {latitude: 0,longitude: 0};
 				item.location = node.measurementSiteLocation.locationForDisplay;
@@ -89,13 +56,11 @@ var req = pg.connect(connstring, function(err, client) {
 				
 				item.alertclocation = alertc.alertCMethod4PrimaryPointLocation.alertCLocation.specificLocation;
 				item.alertcoffset = alertc.alertCMethod4PrimaryPointLocation.offsetDistance.offsetDistance;
-				writeout(item);
+				nodes.push(item);
 			}
-			//If multiple locations
-			
-			else if (node.measurementSiteLocation['xsi:type'] =="ItineraryByIndexedLocations") {
-				var l = node.measurementSiteLocation
-					.locationContainedInItinerary;
+			//If multiple locations		
+			else if (node.measurementSiteLocation.$['xsi:type'] == 'ItineraryByIndexedLocations') {
+				var l = node.measurementSiteLocation.locationContainedInItinerary;
 				let locations = Array.isArray(l)?l:[l];
 				locations.forEach(location=>{
 					item.index = location.index;
@@ -111,15 +76,87 @@ var req = pg.connect(connstring, function(err, client) {
 					else { 
 						//this doesn't exist
 					}
-					item.location = location
-						.locationForDisplay;
-					writeout(item);
+					item.location = location.locationForDisplay;
+					nodes.push(item);
 				});
 			}
 			else {
-				console.log('Not included: ' ,id);
+				log('Not included: ' ,id);
 			}
-			
+		});
+		xml.on('error', function(message) {
+			reject('XML parsing failed: ' + message);
+		});
+		xml.on('end', function(){
+			log('XML closed');
+			resolve(nodes);
+		});
 	});
-	
+}
+
+const pool = new Pool({
+	host: 'localhost',
+	port: 5433,
+	user: 'postgres',
+	password: '',
+	database: 'research'
 });
+
+(async () => {
+	// note: we don't try/catch this because if connecting throws an exception
+	// we don't need to dispose of the client (it will be undefined)
+	const client = await pool.connect();
+
+	try{
+		var items = await readXML();
+		log('read ' + items.length + ' items');
+		log('beginning transaction');
+		await client.query('BEGIN');
+		await client.query('DELETE FROM ndw.mst_points_all WHERE filedate = $1;', [filedate]);
+		//await client.query('DELETE FROM ndw.mst_lines_test WHERE filedate = $1;', [filedate]);
+
+		var counter = 0;
+
+		for(var i=0; i<items.length; i++) {
+			var item = items[i];
+			if (item.location && item.location.longitude){
+				//log(JSON.stringify(item));
+				query = "INSERT INTO ndw.mst_points_all (mst_id, filedate, name, location, alertcdirection, alertclocation, alertcoffset, carriageway, direction, distance, method, equipment, lanes, characteristics, geom) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9,$10, $11, $12, $13, $14, ST_SetSrid(ST_MakePoint("+item.location.longitude+","+item.location.latitude+"),4326))";
+				var vars = [
+				   item.mst_id
+				  ,filedate
+				  ,item.name
+				  //,item.locationi
+				  ,0
+				  ,item.alertcdirection
+				  ,item.alertclocation
+				  ,item.alertcoffset
+				  ,item.carriageway
+				  ,item.direction
+				  ,item.distance
+				  ,item.method
+				  ,item.equipment
+				  ,item.lanes
+				  ,JSON.stringify(item.characteristics)
+				];
+				if (DEBUG && counter % 100 == 0) {
+					process.stdout.write('writing record ' + counter + "\r");
+				}
+				await client.query(query, vars);
+				counter++;
+			}
+		};
+		if (DEBUG)
+			process.stdout.write("                                        \r");
+		log('wrote ' + counter + ' records');
+		log('committing transaction');
+		await client.query('COMMIT');
+	} catch (e) {
+		await client.query('ROLLBACK');
+		throw e;
+	} finally {
+		await client.release();
+		log('done, please wait until process exits');
+	}
+})().catch(e => logerror(e.stack));
+
