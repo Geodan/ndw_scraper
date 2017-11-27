@@ -9,6 +9,15 @@ const ldj = require('ldjson-stream');
 
 let logger = fs.createWriteStream('log.txt');
 
+const DEBUG = false;
+function log(message){
+	if(DEBUG) 
+		console.log(message);
+}
+function logerror(message){
+	console.error(message);
+}
+
 //Prepare PG
 
 const { Pool } = require('/usr/local/lib/node_modules/pg')
@@ -22,21 +31,21 @@ const pool = new Pool({
 	          connectionTimeoutMillis: 2000,
 })
 pool.on('error', function (err) {
-	  console.log('Database error!', err);
+	  logerror('Database error!', err);
 });
 
 pool.connect((err, client,done) => {
         if (err){
-              console.log('Connecting error: ',err);
+              logerror('Connecting error: ',err);
         }
 
         const querystring = copy.from('COPY ndw.trafficspeed_2 FROM STDIN');
         const pgstream = client.query(querystring);
         pgstream.on('error',function(e){
-                console.log('Stream error: ',e)
+                logerror('Stream error: ',e)
         });
         pgstream.on('end', function() {
-                console.log('Stream closed');
+                log('Stream closed');
 		client.end();
 		done();
         });
@@ -47,7 +56,7 @@ pool.connect((err, client,done) => {
 		.pipe(zlib.createGunzip())
 		.pipe(converter).pipe(ldj.serialize())
 	        .on('data',function(d){
-			//console.log(JSON.parse(node));
+			//log(JSON.parse(node));
 			node = JSON.parse(d);
 		
 	
@@ -65,7 +74,7 @@ pool.connect((err, client,done) => {
 			let maxspeed = 0;
 			let avgspeed = 0;
 			let nspeed = 0;
-			//console.log(time,ref.$.id);
+			//log(time,ref.$.id);
 			values.forEach(function(v,i){
 				const basicData = v.measuredValue.basicData;
 				if (basicData.vehicleFlow){
@@ -146,7 +155,7 @@ pool.connect((err, client,done) => {
 		})
 		.on('end',function(){
 			pgstream.end();
-			console.log('Finished reading stream');
+			log('Finished reading stream');
 		});
 	
 });
