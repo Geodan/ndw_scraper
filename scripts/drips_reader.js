@@ -9,7 +9,7 @@ var fs		= require('fs')
 
 const LOCATION_URL = 'http://opendata.ndw.nu/LocatietabelDRIPS.xml.gz';
 const DATA_URL = 'http://opendata.ndw.nu/DRIPS.xml.gz';
-const DEBUG = true;
+const DEBUG = false;
 
 function log(message){
 	if(DEBUG) 
