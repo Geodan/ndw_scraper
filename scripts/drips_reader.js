@@ -57,7 +57,6 @@ function readDataXML() {
 		xml.collect('vmsTextLine');
 		xml.on('updateElement: vmsUnit', function(node) {
 			let id = node.vmsUnitReference.$['id'];
-			let version = node.vmsUnitReference.$['version'];
 			if (!node.vms || !node.vms.vms || 
 				!node.vms.vms.vmsMessage || !node.vms.vms.vmsMessage.vmsMessage) return;
 			let vmsMessage = node.vms.vms.vmsMessage.vmsMessage;
@@ -84,7 +83,6 @@ function readDataXML() {
 			}
 			nodes.push({
 				id: id,
-				version: version,
 				time: vmsTime,
 				text: text,
 				image: imageData
@@ -141,10 +139,9 @@ const pool = new Pool({
 			const longitude = locations[node.id].longitude;
 			var querystring = SQL`
 				INSERT INTO ndw.drips
-				(id, version, active, time, text, image, latitude, longitude, geom)
+				(id, active, messagetime, text, image, latitude, longitude, geom)
 				VALUES (
 					${node.id},
-					${node.version},
 					1,
 					${node.time},
 					${node.text},
@@ -152,8 +149,7 @@ const pool = new Pool({
 					${latitude},
 					${longitude},
 					ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-				)
-				ON CONFLICT ON CONSTRAINT drips_pkey DO UPDATE SET active = 1;
+				);
 			`;
 			await client.query(querystring);
 			counter++;

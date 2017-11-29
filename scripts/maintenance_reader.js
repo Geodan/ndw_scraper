@@ -40,7 +40,7 @@ function readXML() {
 			reject('XML parsing failed: ' + message);
 		});
 		xml.on('end', function(){
-			log('XML closed');
+			//log('XML closed');
 			resolve(nodes);
 		});
 	});
@@ -112,11 +112,6 @@ const pool = new Pool({
 			}
 			var maintenancetype = node.roadMaintenanceType;
 			
-			//log(observationtime, id, version, probabilityofoccurrence, source, accidenttype,location);
-
-			//log(counter++,'---------------------------------');
-
-			//Stream to db
 			var querystring = SQL`
 				INSERT INTO ndw.maintenance
 				(id, version, active, versiontime, starttime, endtime, probabilityofoccurrence, 
