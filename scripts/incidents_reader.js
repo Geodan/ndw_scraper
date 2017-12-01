@@ -125,6 +125,7 @@ const pool = new Pool({
 		log('committing transaction');
 		await client.query('COMMIT');
 	} catch (e) {
+		logerror('an error occured, rolling back transaction');
 		await client.query('ROLLBACK');
 		throw e;
 	} finally {

@@ -19,6 +19,17 @@ function logerror(message){
 	console.error(message);
 }
 
+String.prototype.hashCode = function() {
+	var hash = 0, i, chr;
+	if (this.length === 0) return hash;
+	for (i = 0; i < this.length; i++) {
+		chr   = this.charCodeAt(i);
+		hash  = ((hash << 5) - hash) + chr;
+		hash |= 0; // Convert to 32bit integer
+	}
+	return hash;
+};
+
 function readLocationXML() {
 	return new Promise(function(resolve, reject) {
 		var locations = {};
@@ -123,7 +134,6 @@ const pool = new Pool({
 		log('\nread ' + data.length + ' data nodes');
 		log('beginning transaction');
 		await client.query('BEGIN');
-		await client.query('UPDATE ndw.drips SET active = 0 WHERE active = 1');
 
 		var counter = 0;
 		
@@ -138,26 +148,33 @@ const pool = new Pool({
 			const latitude = locations[node.id].latitude;
 			const longitude = locations[node.id].longitude;
 			var querystring = SQL`
-				INSERT INTO ndw.drips
-				(id, active, messagetime, text, image, latitude, longitude, geom)
+				INSERT INTO ndw.drips_all
+				(id, active, active_new, messagetime, text, textHash, image, imageHash, latitude, longitude, geom)
 				VALUES (
 					${node.id},
 					1,
+					1,
 					${node.time},
 					${node.text},
+					${node.text ? node.text.hashCode() : 0},
 					${node.image},
+					${node.image ? node.image.hashCode() : 0},
 					${latitude},
 					${longitude},
 					ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-				);
+				)
+				ON CONFLICT ON CONSTRAINT drips_all_pkey DO UPDATE SET active_new = 1;
 			`;
 			await client.query(querystring);
 			counter++;
 		};
 		log('wrote ' + counter + ' records');
+		await client.query('UPDATE ndw.drips_all SET active = 0 WHERE active_new = 0');
+		await client.query('UPDATE ndw.drips_all SET active_new = 0 WHERE active_new = 1');
 		log('committing transaction');
 		await client.query('COMMIT');
 	} catch (e) {
+		logerror('an error occured, rolling back transaction');
 		await client.query('ROLLBACK');
 		throw e;
 	} finally {
