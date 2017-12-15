@@ -163,7 +163,9 @@ const pool = new Pool({
 					${longitude},
 					ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
 				)
-				ON CONFLICT ON CONSTRAINT drips_all_pkey DO UPDATE SET active_new = 1;
+				ON CONFLICT (id, active, texthash, imagehash) 
+				WHERE active = 1
+				DO UPDATE SET active_new = 1;
 			`;
 			await client.query(querystring);
 			counter++;
