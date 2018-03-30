@@ -134,7 +134,8 @@ const pool = new Pool({
 		log('\nread ' + data.length + ' data nodes');
 		log('beginning transaction');
 		await client.query('BEGIN');
-
+		await client.query('DELETE FROM ndw.drips');
+		
 		var counter = 0;
 		
 		for(var i=0; i<data.length; i++) {
@@ -148,31 +149,22 @@ const pool = new Pool({
 			const latitude = locations[node.id].latitude;
 			const longitude = locations[node.id].longitude;
 			var querystring = SQL`
-				INSERT INTO ndw.drips_all
-				(id, active, active_new, messagetime, text, textHash, image, imageHash, latitude, longitude, geom)
+				INSERT INTO ndw.drips
+				(id, messagetime, text, image, latitude, longitude, geom)
 				VALUES (
 					${node.id},
-					1,
-					1,
 					${node.time},
 					${node.text},
-					${node.text ? node.text.hashCode() : 0},
 					${node.image},
-					${node.image ? node.image.hashCode() : 0},
 					${latitude},
 					${longitude},
 					ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
 				)
-				ON CONFLICT (id, active, texthash, imagehash) 
-				WHERE active = 1
-				DO UPDATE SET active_new = 1;
 			`;
 			await client.query(querystring);
 			counter++;
 		};
 		log('wrote ' + counter + ' records');
-		await client.query('UPDATE ndw.drips_all SET active = 0 WHERE active_new = 0');
-		await client.query('UPDATE ndw.drips_all SET active_new = 0 WHERE active_new = 1');
 		log('committing transaction');
 		await client.query('COMMIT');
 	} catch (e) {
