@@ -9,7 +9,7 @@ var fs		= require('fs')
 
 const LOCATION_URL = 'http://opendata.ndw.nu/LocatietabelDRIPS.xml.gz';
 const DATA_URL = 'http://opendata.ndw.nu/DRIPS.xml.gz';
-const DEBUG = false;
+const DEBUG = true;
 
 function log(message){
 	if(DEBUG) 
@@ -116,7 +116,7 @@ function readDataXML() {
 //Prepare PG
 const pool = new Pool({
 	host: 'localhost',
-	port: 5433,
+	port: 5432,
 	user: 'postgres',
 	password: '',
 	database: 'research'
