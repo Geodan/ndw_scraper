@@ -58,7 +58,7 @@ function readXML() {
 //Prepare PG
 const pool = new Pool({
 	host: 'localhost',
-	port: 5433,
+	port: 5432,
 	user: 'postgres',
 	password: '',
 	database: 'research'
