@@ -2,10 +2,10 @@ var fs		= require('fs')
   , zlib		  = require('zlib')
   , path	  = require('path')
   , XmlStream = require('xml-stream')
-  , { Pool }  = require('/usr/local/lib/node_modules/pg')
-  , copy	  = require('/usr/local/lib/node_modules/pg-copy-streams')
-  , request   = require('/usr/local/lib/node_modules/request')
-  , SQL	      = require('/usr/local/lib/node_modules/sql-template-strings');
+  , { Pool }  = require('pg')
+  , copy	  = require('pg-copy-streams')
+  , request   = require('request')
+  , SQL	      = require('sql-template-strings');
 
 const LOCATION_URL = 'http://opendata.ndw.nu/LocatietabelDRIPS.xml.gz';
 const DATA_URL = 'http://opendata.ndw.nu/DRIPS.xml.gz';
@@ -115,7 +115,7 @@ function readDataXML() {
 
 //Prepare PG
 const pool = new Pool({
-	host: 'localhost',
+	host: 'mimas.geodan.nl',
 	port: 5432,
 	user: 'postgres',
 	password: '',

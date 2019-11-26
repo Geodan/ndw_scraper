@@ -4,6 +4,10 @@
   "description": "Gets data from NDW portal and transforms it into postgres data",
   "main": "index.js",
   "dependencies": {
+    "pg": "^7.14.0",
+    "pg-copy-streams": "^2.2.2",
+    "request": "^2.88.0",
+    "sql-template-strings": "^2.2.2",
     "xml-json": "^2.0.2",
     "xml-stream": "^0.4.5"
   },
