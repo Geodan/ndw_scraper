@@ -3,8 +3,8 @@ const fs        = require('fs')
   , path      = require('path')
   , XmlStream = require('xml-stream')
   , XmlJson = require('xml-json')
-  , copy      = require('/usr/local/lib/node_modules/pg-copy-streams')
-  , request   = require('/usr/local/lib/node_modules/request');
+  , copy      = require('pg-copy-streams')
+  , request   = require('request');
 const ldj = require('ldjson-stream');
 
 let logger = fs.createWriteStream('log.txt');
@@ -20,9 +20,9 @@ function logerror(message){
 
 //Prepare PG
 
-const { Pool } = require('/usr/local/lib/node_modules/pg')
+const { Pool } = require('pg')
 const pool = new Pool({
-	          host: 'localhost',
+	          host: 'mimas.geodan.nl',
 	          user: 'postgres',
 	          database: 'research',
 	          port: 5432,

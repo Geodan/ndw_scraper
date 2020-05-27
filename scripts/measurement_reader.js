@@ -3,8 +3,8 @@ var fs        = require('fs')
   , path      = require('path')
   , XmlStream = require('xml-stream')
   , XmlJson = require('xml-json')
-  , { Pool }  = require('/usr/local/lib/node_modules/pg')
-  , request   = require('/usr/local/lib/node_modules/request');
+  , { Pool }  = require('pg')
+  , request   = require('request');
 var ldj = require('ldjson-stream');
 
 const DEBUG = false;
@@ -95,7 +95,7 @@ function readXML() {
 }
 
 const pool = new Pool({
-	host: 'localhost',
+	host: 'mimas.geodan.nl',
 	port: 5432,
 	user: 'postgres',
 	password: '',
