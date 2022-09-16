@@ -1,7 +1,7 @@
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 DIROUTPUT="/var/data/html/saturnus/saturnus.geodan.nl/traffic" 
-ogr2ogr -f GeoJSON "$DIR/traffic.json.new" "PG:host=mimas.geodan.nl port=5432 dbname=research user=postgres password=" -sql "
+ogr2ogr -f GeoJSON "$DIR/traffic.json.new" "PG:host=mimas3.geodan.nl port=5432 dbname=research user=postgres password=" -sql "
 
 WITH traffic AS (
 	SELECT location, date, speed_avg, flow_avg

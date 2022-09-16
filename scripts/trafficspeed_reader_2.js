@@ -22,7 +22,7 @@ function logerror(message){
 
 const { Pool } = require('pg')
 const pool = new Pool({
-	          host: 'mimas.geodan.nl',
+	          host: 'mimas3.geodan.nl',
 	          user: 'postgres',
 	          database: 'research',
 	          port: 5432,
