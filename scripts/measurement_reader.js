@@ -95,7 +95,11 @@ function readXML() {
 }
 
 const pool = new Pool({
+<<<<<<< HEAD
 	host: 'mimas3.geodan.nl',
+=======
+	host: 'mimas.geodan.nl',
+>>>>>>> f3dd55dcc041674af4e00b266eb5c6bf3dddfb69
 	port: 5432,
 	user: 'postgres',
 	password: '',

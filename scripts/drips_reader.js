@@ -115,7 +115,7 @@ function readDataXML() {
 
 //Prepare PG
 const pool = new Pool({
-	host: 'mimas3.geodan.nl',
+	host: 'mimas.geodan.nl',
 	port: 5432,
 	user: 'postgres',
 	password: '',
