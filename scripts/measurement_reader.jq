@@ -12,17 +12,20 @@ select(
 	numlanes: .measurementSiteNumberOfLanes,
 	side: .measurementSide,
 	num_entities: (.measurementSpecificCharacteristics | length ),
-	entities: [
-		.measurementSpecificCharacteristics[].measurementSpecificCharacteristics 
-		| 
-			.specificLane + "_" +
+	entities: 
+		.measurementSpecificCharacteristics[] 
+		|{index: .index,
+			entity: .measurementSpecificCharacteristics |  
+			(.specificLane + "_" +
 			.specificMeasurementValueType + "_" +
 			(.specificVehicleCharacteristics | (.vehicleType // (.lengthCharacteristic | 
 				if 
 				  type=="array" then .[0].vehicleLength + "-" + .[1].vehicleLength
 				  else "> " + .vehicleLength 
 				end) )
+			) 
 			)
-		
-	]
-} 
+		}
+	
+} |
+[.id + "_" + .entities.index, .entities.entity] | @tsv

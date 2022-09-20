@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-curl -s https://opendata.ndw.nu/measurement.xml.gz |\
+curl -sL https://opendata.ndw.nu/measurement.xml.gz |\
 	gunzip |\
 	xml-json measurementSiteRecord | \
-	jq -f measurement_reader.jq
+	jq -r -f measurement_reader.jq
