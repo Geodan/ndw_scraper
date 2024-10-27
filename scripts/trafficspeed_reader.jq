@@ -1,3 +1,6 @@
+def intersects($b): any(.[]; . as $x | any( $b[]; . == $x) ) ;
+
+select([.measurementSiteReference.id] | intersects(["GEO0K_K_RWSTI360404","RWS01_MONIBAS_0020vwc1168ra","RWS01_MONIBAS_0020vwc1189ra"])) |
 {
 	id: .measurementSiteReference.id,
 	time: .measurementTimeDefault, 

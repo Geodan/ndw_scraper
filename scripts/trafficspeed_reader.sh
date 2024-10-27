@@ -12,5 +12,5 @@ awk 'BEGIN { FS = "\t"; OFS = "\t" }
              values[$1] = $2
          else
              print $1, values[$2], $3, $4
-     }' meas.csv speed.tsv > speed2.tsv
+     }' meas.tsv speed.tsv > speed2.tsv
 
